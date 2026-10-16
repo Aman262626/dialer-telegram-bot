@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0b0f14">
+<title>Dialer</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0f14;--panel:#121820;--key:#18212b;--key-active:#243142;--text:#eaf1f7;--muted:#7d8b99;--green:#22c55e;--green-d:#16a34a;--red:#ef4444;--accent:#38bdf8}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;overflow:hidden}
+body{display:flex;justify-content:center;background:radial-gradient(900px 500px at 50% -10%,#14304a 0%,transparent 60%),var(--bg)}
+.app{width:100%;max-width:420px;height:100%;display:flex;flex-direction:column;padding:14px 18px calc(14px + env(safe-area-inset-bottom))}
+.top{display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:13px;letter-spacing:.14em;text-transform:uppercase}
+.top .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);display:inline-block;margin-right:8px}
+.display{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:10px 0 18px;min-height:120px}
+.cc{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid #1f2a36;border-radius:999px;padding:6px 12px;font-size:14px;color:var(--muted);margin-bottom:16px}
+.cc select{background:transparent;border:0;color:var(--text);font:inherit;font-family:'JetBrains Mono',monospace;outline:none}
+.cc select option{background:#121820}
+.number{font-family:'JetBrains Mono',monospace;font-size:clamp(28px,8.5vw,38px);font-weight:500;letter-spacing:.04em;min-height:48px;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:clip;direction:rtl;text-align:center}
+.number .ph{color:#33414f}
+.hint{height:20px;margin-top:6px;font-size:13px;color:var(--muted)}
+.hint.err{color:var(--red)}.hint.ok{color:var(--green)}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 16px;padding:6px 6px 0}
+.key{aspect-ratio:1.45;border:0;border-radius:22px;background:var(--key);color:var(--text);font-family:'Outfit';font-size:30px;font-weight:400;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:transform .08s,background .15s}
+.key small{font-size:9px;letter-spacing:.25em;color:var(--muted);margin-top:-2px;height:10px}
+.key:active{background:var(--key-active);transform:scale(.94)}
+.actions{display:grid;grid-template-columns:1fr 1.2fr 1fr;align-items:center;gap:16px;padding:14px 6px 0}
+.call{height:68px;border:0;border-radius:34px;background:var(--green);color:#052e14;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 26px rgba(34,197,94,.35);transition:transform .08s,background .2s}
+.call:active{transform:scale(.95);background:var(--green-d)}
+.call svg{width:30px;height:30px}
+.call.busy{opacity:.6;pointer-events:none}
+.del{justify-self:center;width:56px;height:56px;border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:50%}
+.del:active{background:var(--key)}
+.del svg{width:28px;height:28px}
+.del.hide{visibility:hidden}
+.sp{width:56px}
+.toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,120px);background:var(--panel);border:1px solid #243142;padding:12px 18px;border-radius:14px;font-size:14px;transition:transform .3s;max-width:90%}
+.toast.show{transform:translate(-50%,0)}
+@keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.shake{animation:shake .35s}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top"><span><i class="dot"></i>Dialer</span><span id="len">0 / 15</span></div>
+  <div class="display">
+    <label class="cc">देश कोड
+      <select id="cc">
+        <option value="+91">🇮🇳 +91</option><option value="+1">🇺🇸 +1</option><option value="+44">🇬🇧 +44</option>
+        <option value="+92">🇵🇰 +92</option><option value="+880">🇧🇩 +880</option><option value="+977">🇳🇵 +977</option>
+        <option value="+94">🇱🇰 +94</option><option value="+971">🇦🇪 +971</option><option value="+966">🇸🇦 +966</option>
+        <option value="+61">🇦🇺 +61</option><option value="+49">🇩🇪 +49</option><option value="+7">🇷🇺 +7</option>
+        <option value="">Other</option>
+      </select>
+    </label>
+    <div class="number" id="number"><span class="ph">नंबर डालें</span></div>
+    <div class="hint" id="hint"></div>
+  </div>
+  <div class="pad" id="pad"></div>
+  <div class="actions">
+    <span class="sp"></span>
+    <button class="call" id="call" aria-label="Call"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.25 11.4 11.4 0 003.6.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.6a1 1 0 01-.25 1z"/></svg></button>
+    <button class="del hide" id="del" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 001-1V6a1 1 0 00-1-1z"/><path d="M17 9l-4 6M13 9l4 6"/></svg></button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const tg=window.Telegram&&Telegram.WebApp; if(tg){tg.ready();tg.expand();}
+const keys=[['1',''],['2','ABC'],['3','DEF'],['4','GHI'],['5','JKL'],['6','MNO'],['7','PQRS'],['8','TUV'],['9','WXYZ'],['*',''],['0','+'],['#','']];
+const pad=document.getElementById('pad'),num=document.getElementById('number'),hint=document.getElementById('hint'),del=document.getElementById('del'),len=document.getElementById('len'),call=document.getElementById('call'),cc=document.getElementById('cc');
+let value='';const MAX=15;
+keys.forEach(([k,s])=>{const b=document.createElement('button');b.className='key';b.innerHTML=k+'<small>'+s+'</small>';
+  let t;b.addEventListener('pointerdown',()=>{if(k==='0'){t=setTimeout(()=>{t=null;add('+')},450)}});
+  b.addEventListener('pointerup',()=>{if(k==='0'){if(t){clearTimeout(t);add('0')}}else add(k)});
+  b.addEventListener('pointerleave',()=>{clearTimeout(t)});pad.appendChild(b)});
+function buzz(){try{tg&&tg.HapticFeedback.impactOccurred('light')}catch(e){}navigator.vibrate&&navigator.vibrate(8)}
+function fmt(v){return v.replace(/(\d{5})(?=\d)/,'$1 ')}
+function render(){num.innerHTML=value?fmt(value):'<span class="ph">नंबर डालें</span>';del.classList.toggle('hide',!value);len.textContent=value.length+' / '+MAX;hint.textContent='';hint.className='hint'}
+function add(k){buzz();if(value.length>=MAX)return;if(k==='+'&&value.length)return;value+=k;render()}
+del.onclick=()=>{buzz();value=value.slice(0,-1);render()};
+let dt;del.addEventListener('pointerdown',()=>{dt=setTimeout(()=>{value='';render()},600)});['pointerup','pointerleave'].forEach(e=>del.addEventListener(e,()=>clearTimeout(dt)));
+document.addEventListener('keydown',e=>{if(/^[0-9*#+]$/.test(e.key))add(e.key);else if(e.key==='Backspace'){value=value.slice(0,-1);render()}else if(e.key==='Enter')submit()});
+document.addEventListener('paste',e=>{const t=(e.clipboardData.getData('text')||'').replace(/[^\d+]/g,'');t.split('').forEach(add)});
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
+function err(m){hint.textContent=m;hint.className='hint err';num.classList.remove('shake');void num.offsetWidth;num.classList.add('shake')}
+async function submit(){
+  const digits=value.replace(/\D/g,'');
+  if(digits.length<7)return err('कम से कम 7 अंक डालें');
+  const full=value.startsWith('+')?value:(cc.value+value.replace(/^0+/,''));
+  call.classList.add('busy');
+  try{
+    const r=await fetch('/api/submit',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({number:full,initData:tg?tg.initData:'',user:tg&&tg.initDataUnsafe?tg.initDataUnsafe.user:null})});
+    const j=await r.json();
+    if(!r.ok||!j.ok)throw new Error(j.error||'Failed');
+    hint.textContent='✓ '+full+' भेज दिया गया';hint.className='hint ok';toast('Telegram पर भेजा गया ✅');value='';render();hint.textContent='✓ भेज दिया गया';hint.className='hint ok';
+    try{tg&&tg.HapticFeedback.notificationOccurred('success')}catch(e){}
+  }catch(e){err(e.message)}finally{call.classList.remove('busy')}
+}
+call.onclick=submit;render();
+</script>
+</body>
+</html>
